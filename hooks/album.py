@@ -18,7 +18,7 @@ imgur_headers = {'Authorization': 'Client-ID {0}'.format(client_ID)}
 ALBUM_URL = "https://api.imgur.com/3/album/{0}/"
 ALBUM_CACHE = None
 
-TS = 'l'  # THUMB_SIZE_LETTER  (see http://api.imgur.com/models/image)
+TS = 'm'  # THUMB_SIZE_LETTER  (see http://api.imgur.com/models/image)
 
 MAX_WIDTH = 300
 MAX_HEIGHT = 500
@@ -83,6 +83,11 @@ def get_imgur_album_images(page):
     return json.dumps(images)
 
 
+def calc_img_hw(path):
+    image = Image.open(path.replace(REL_GALLERY_DIR, GALLERY_DIR))
+    return image.size[0], image.size[1]
+
+
 def get_images(ctx, page, templ_vars):
     """
     Wok page.template.pre hook
@@ -91,13 +96,14 @@ def get_images(ctx, page, templ_vars):
     """
     is_imgur = 'source' in page.meta and page.meta['source'] == 'imgur'
     if 'type' in page.meta and page.meta['type'] == 'album':
-        album = page.meta
-        # get paths of all of the images in the album
-        srcs = []
         if is_imgur:
+            pp.pprint(page.meta)
             # bind to template via json
             templ_vars['site']['images'] = get_imgur_album_images(page)
         else:
+            album = page.meta
+            # get paths of all of the images in the album
+            srcs = []
             # get absolute paths of images in album for each file type
             for file_type in FILE_TYPES:
                 imgs = glob.glob(
@@ -112,59 +118,22 @@ def get_images(ctx, page, templ_vars):
                     srcs.append(img_rel_path)
 
             # split full srcs and thumb srcs from srcs into two lists
-            full_srcs = []
-            thumb_srcs = []
-            for src in srcs:
-                if src.split('/')[-1].startswith(THUMB_PREFIX):
-                    thumb_srcs.append(src)
-                else:
-                    full_srcs.append(src)
-
-            # bind to template via json
-            templ_vars['site']['srcs'] = json.dumps(sorted(full_srcs))
-            templ_vars['site']['thumb_srcs'] = json.dumps(sorted(thumb_srcs))
-
-
-def get_image_sizes(ctx, page, templ_vars):
-    """
-    Wok page.template.pre hook
-    Get all images sizes (width/height) since JS doesn't know until loaded
-    Binds sizes and thumb_sizes to template
-    """
-    is_imgur = 'source' in page.meta and page.meta['source'] == 'imgur'
-    if 'type' in page.meta and page.meta['type'] == 'album':
-        album = page.meta
-        # get paths of all of the images in the album
-        srcs = []
-        if is_imgur:
-            # bind to template via json
-            sizes = get_imgur_album_xy(page)
-            print sizes
-            templ_vars['site']['sizes'], templ_vars['site']['thumb_sizes'] = (
-                sizes
+            images = []
+            thumb_srcs = filter(
+                lambda src: src.split('/')[-1].startswith(THUMB_PREFIX),
+                srcs
             )
-        else:
-            # get absolute paths of images in album for each file type
-            for file_type in FILE_TYPES:
-                image_list = (
-                    glob.glob(GALLERY_DIR + album['slug'] + '/*.' + file_type)
-                )
-                srcs += image_list
+            for thumb_src in thumb_srcs:
+                src = thumb_src.replace(THUMB_PREFIX, '')
+                thumb_width, thumb_height = calc_img_hw(thumb_src)
+                width, height = calc_img_hw(src)
+                images.append({
+                    'thumb_src': thumb_src,
+                    'thumb_width': thumb_width,
+                    'thumb_height': thumb_height,
 
-            # split full srcs and thumb srcs from srcs into two lists
-            full_sizes = []
-            thumb_sizes = []
-            for src in sorted(srcs):
-                image = Image.open(src)
-                width = image.size[0]
-                height = image.size[1]
-                size = [width, height]
-
-                if src.split('/')[-1].startswith(THUMB_PREFIX):
-                    thumb_sizes.append(size)
-                else:
-                    full_sizes.append(size)
-
-            # bind to template via json
-            templ_vars['site']['sizes'] = json.dumps(full_sizes)
-            templ_vars['site']['thumb_sizes'] = json.dumps(thumb_sizes)
+                    'src': src,
+                    'width': width,
+                    'height': height,
+                })
+            templ_vars['site']['images'] = json.dumps(images)

@@ -298,7 +298,10 @@ window.AlbumView = Backbone.View.extend({
         console.log('Seen source thumb as: ' + $(this).attr('src'));
         var clickedSrc = $(this).attr('src');
         $(image_list).each(function (i, image){
-            if (image.thumb_src === clickedSrc){
+            console.log('thumb_src: ' + image.thumb_src);
+            console.log('clickedSrc: ' + clickedSrc);
+            if (clickedSrc.indexOf(image.thumb_src, clickedSrc.length - image.thumb_src.length) !== -1) {
+                console.log('Changing to: ' + image.src);
                 img.attr('src', image.src);
             }
         });
