@@ -7,7 +7,7 @@ FILE_TYPES = ["jpg", "JPG", "jpeg", "JPEG", "png", "PNG"]
 THUMB_PREFIX = "THUMB_"
 PREVIEW_IMGS_NUM = 3
 
-def get_albums(page, templ_vars):
+def get_albums(ctx, page, templ_vars):
     """
     Wok page.template.pre hook
     Load several preview images into each album

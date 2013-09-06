@@ -1,6 +1,7 @@
 import glob
 import os
 import simplejson
+import requests
 
 import Image
 
@@ -9,7 +10,21 @@ REL_GALLERY_DIR = '/img/gallery/'
 FILE_TYPES = ['jpg', 'JPG', 'jpeg', 'JPEG', 'png', 'PNG']
 THUMB_PREFIX = 'THUMB_'
 
-def get_image_srcs(page, templ_vars):
+client_ID = "f151f673c7118b9"  # XXX move to config file
+imgur_headers = {'Authorization': 'Client-ID {0}'.format(client_ID)}
+ALBUM_URL = "https://api.imgur.com/3/album/{0}/"
+response = requests.get(
+    ALBUM_URL, headers=imgur_headers
+)
+
+
+def get_imgur_album_meta(page):
+    if 'album-id' not in page.meta:
+        raise Exception("No album id for {0}".format(page.meta['title']))
+    album_id = page.meta['album-id']
+    print album_id
+
+def get_image_srcs(ctx, page, templ_vars):
     """
     Wok page.template.pre hook
     Get all images in the album as relative paths
@@ -26,7 +41,9 @@ def get_image_srcs(page, templ_vars):
             imgs = glob.glob(GALLERY_DIR + album['slug'] + '/*.' + file_type)
 
             for img in imgs:
-                img_rel_path = REL_GALLERY_DIR + album['slug'] + '/' + img.split('/')[-1]
+                img_rel_path = (
+                    REL_GALLERY_DIR + album['slug'] + '/' + img.split('/')[-1]
+                )
                 srcs.append(img_rel_path)
 
         # split full srcs and thumb srcs from srcs into two lists
@@ -41,9 +58,11 @@ def get_image_srcs(page, templ_vars):
         # bind to template via json
         templ_vars['site']['srcs'] = simplejson.dumps(sorted(full_srcs))
         templ_vars['site']['thumb_srcs'] = simplejson.dumps(sorted(thumb_srcs))
+    elif 'type' in page.meta and page.meta['type'] == 'imgur-album':
+        print get_imgur_album_meta(page)
 
 
-def get_image_sizes(page, templ_vars):
+def get_image_sizes(ctx, page, templ_vars):
     """
     Wok page.template.pre hook
     Get all images sizes (width/height) since JS doesn't know until loaded
@@ -56,7 +75,9 @@ def get_image_sizes(page, templ_vars):
 
         # get absolute paths of images in album for each file type
         for file_type in FILE_TYPES:
-            image_list = glob.glob(GALLERY_DIR + album['slug'] + '/*.' + file_type)
+            image_list = (
+                glob.glob(GALLERY_DIR + album['slug'] + '/*.' + file_type)
+            )
             srcs += image_list
 
         # split full srcs and thumb srcs from srcs into two lists
@@ -76,3 +97,5 @@ def get_image_sizes(page, templ_vars):
         # bind to template via json
         templ_vars['site']['sizes'] = simplejson.dumps(full_sizes)
         templ_vars['site']['thumb_sizes'] = simplejson.dumps(thumb_sizes)
+    elif 'type' in page.meta and page.meta['type'] == 'imgur-album':
+        print get_imgur_album_meta(page)
