@@ -10,13 +10,8 @@
   <link rel="stylesheet" type="text/css" href="/css/album.css" />
   <script type="text/javascript" src="/js/utilities.js" ></script>
 
-  <!--Bind album image srcs to DOM-->
-  <span id="srcs" style="display:none">{{ site.srcs }}</span>
-  <span id="thumb_srcs" style="display:none">{{ site.thumb_srcs }}</span>
-
-  <!--Bind album image sizes to DOM-->
-  <span id="sizes" style="display:none">{{ site.sizes }}</span>
-  <span id="thumb_sizes" style="display:none">{{ site.thumb_sizes }}</span>
+  <!--Bind album images to DOM-->
+  <span id="images" style="display:none">{{ site.images }}</span>
 
   {{  page.content  }}
   <div id="album" class="container"></div>

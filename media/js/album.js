@@ -73,15 +73,12 @@ window.AlbumView = Backbone.View.extend({
     initialize: function() {
         this.images = new Images();
 
-        this.thumbSrcs = jQuery.parseJSON($('#thumb_srcs').text());
-        this.thumbSizes = jQuery.parseJSON($('#thumb_sizes').text());
-
-        this.srcs = jQuery.parseJSON($('#srcs').text());
-        this.sizes = jQuery.parseJSON($('#sizes').text());
+        this.image_list = jQuery.parseJSON($('#images').text());
 
         this.createImages();
 
         var self = this;
+        self.image_list = this.image_list;
         $(window).scroll( function() {
           self.endlessScroller();
         });
@@ -100,17 +97,17 @@ window.AlbumView = Backbone.View.extend({
     createImages: function() {
         var self = this;
 
-        $(this.srcs).each(function(index) {
+        $(this.image_list).each(function(index, img) {
             var image = new Image({
                 'id': index,
 
-                'thumbSrc': self.thumbSrcs[index],
-                'thumbWidth': self.thumbSizes[index][0],
-                'thumbHeight': self.thumbSizes[index][1],
+                'thumbSrc': img.thumb_src,
+                'thumbWidth': img.thumb_width,
+                'thumbHeight': img.thumb_height,
 
-                'src': self.srcs[index],
-                'width': self.sizes[index][0],
-                'height': self.sizes[index][0],
+                'src': img.src,
+                'width': img.width,
+                'height': img.height,
 
                 'viewed': false,
             });
@@ -268,11 +265,11 @@ window.AlbumView = Backbone.View.extend({
                 width: 1.4 * img.width(),
                 height: 1.4 * img.height(),
             }, 60, function(){
-                var src = img.attr('src').replace(THUMB_PREFIX, '');
+                var src = img.attr('src');
                 img.attr('src', src);
                 self.src = this.src;
             });
-        }, 700);
+        }, 100);
     },
 
     // Overlay full size image when clicked
@@ -294,8 +291,17 @@ window.AlbumView = Backbone.View.extend({
         // create full size image
         var img = $('<img />');
         img.css('top', scrollTop);
-        img.attr('src', $(this).attr('src').replace(THUMB_PREFIX, ''));
-        console.log($(this).attr('src').replace(THUMB_PREFIX, ''));
+
+        // Find the image that has this thumb
+        console.log(self);
+        image_list = jQuery.parseJSON($('#images').text());
+        console.log('Seen source thumb as: ' + $(this).attr('src'));
+        var clickedSrc = $(this).attr('src');
+        $(image_list).each(function (i, image){
+            if (image.thumb_src === clickedSrc){
+                img.attr('src', image.src);
+            }
+        });
         img.addClass('overlay-img');
 
         // center image based on its width/height and viewport size once loaded
@@ -308,9 +314,9 @@ window.AlbumView = Backbone.View.extend({
         $(document.body).append(img);
 
         // from the src, get the corresponding model of the image
-        var split = img.attr('src').split('/');
-        var rel_src = '/' + split.slice(3, split.length).join('/');
-        model = event.data.view.images.getBySrc(rel_src);
+        //var split = img.attr('src').split('/');
+        //var rel_src = '/' + split.slice(3, split.length).join('/');
+        model = event.data.view.images.getBySrc(img.attr('src'));
     },
 
     // center overlayed img in viewport, run again on window resize/scroll

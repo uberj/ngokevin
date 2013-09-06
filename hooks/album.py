@@ -18,6 +18,19 @@ imgur_headers = {'Authorization': 'Client-ID {0}'.format(client_ID)}
 ALBUM_URL = "https://api.imgur.com/3/album/{0}/"
 ALBUM_CACHE = None
 
+TS = 'l'  # THUMB_SIZE_LETTER  (see http://api.imgur.com/models/image)
+
+MAX_WIDTH = 300
+MAX_HEIGHT = 500
+
+
+def calc_thumb(src):
+    for ft in FILE_TYPES:
+        if src.endswith(ft):
+            return src.replace('.' + ft, TS + '.' + ft)
+    raise Exception("Unknown filetype for {0}".format(src))
+
+
 def get_imgur_album(album_id):
     global ALBUM_CACHE
     if not ALBUM_CACHE:
@@ -27,36 +40,50 @@ def get_imgur_album(album_id):
         ALBUM_CACHE = json.loads(response.content)
     return ALBUM_CACHE
 
-def get_imgur_album_srcs(page):
+
+def calc_thumb_xy(*args):
+    def refactor(*args):
+        return map(lambda d: int(d * 0.9), args)
+
+    def within_max(width, height):
+        if width > MAX_WIDTH:
+            return False
+        if height > MAX_HEIGHT:
+            return False
+        return True
+
+    while not within_max(*args):
+        args = refactor(*args)
+
+    return args
+
+
+def make_image(image):
+    width = image['width']
+    height = image['height']
+    thumb_width, thumb_height = calc_thumb_xy(width, height)
+    return {
+        'thumb_src': calc_thumb(image['link']),
+        'thumb_width': thumb_width,
+        'thumb_height': thumb_height,
+
+        'src': image['link'],
+        'width': width,
+        'height': height,
+    }
+
+
+def get_imgur_album_images(page):
     if 'album-id' not in page.meta:
         raise Exception("No album id for {0}".format(page.meta['title']))
-    images = get_imgur_album(page.meta['album-id'])['data']['images']
-    pp.pprint(images)
-    return (
-        json.dumps(map(lambda i: i['link'], images)),
-        json.dumps(map(lambda i: i['link'].replace('.jpg', 's.jpg'), images))
+    images = map(
+        make_image,
+        get_imgur_album(page.meta['album-id'])['data']['images']
     )
+    return json.dumps(images)
 
-def scale_imgur_thumb(width, height):
-    return 40, 40
 
-def scale_imgur(width, height):
-    return 40, 40
-
-def get_imgur_album_xy(page):
-    if 'album-id' not in page.meta:
-        raise Exception("No album id for {0}".format(page.meta['title']))
-    images = get_imgur_album(page.meta['album-id'])['data']['images']
-    return (
-        json.dumps(
-            map(lambda i: scale_imgur_thumb(i['width'], i['height']), images)
-        ),
-        json.dumps(
-            map(lambda i: scale_imgur(i['width'], i['height']), images)
-        ),
-    )
-
-def get_image_srcs(ctx, page, templ_vars):
+def get_images(ctx, page, templ_vars):
     """
     Wok page.template.pre hook
     Get all images in the album as relative paths
@@ -69,17 +96,18 @@ def get_image_srcs(ctx, page, templ_vars):
         srcs = []
         if is_imgur:
             # bind to template via json
-            templ_vars['site']['srcs'], templ_vars['site']['thumb_srcs'] = (
-                get_imgur_album_srcs(page)
-            )
+            templ_vars['site']['images'] = get_imgur_album_images(page)
         else:
             # get absolute paths of images in album for each file type
             for file_type in FILE_TYPES:
-                imgs = glob.glob(GALLERY_DIR + album['slug'] + '/*.' + file_type)
+                imgs = glob.glob(
+                    GALLERY_DIR + album['slug'] + '/*.' + file_type
+                )
 
                 for img in imgs:
                     img_rel_path = (
-                        REL_GALLERY_DIR + album['slug'] + '/' + img.split('/')[-1]
+                        REL_GALLERY_DIR +
+                        album['slug'] + '/' + img.split('/')[-1]
                     )
                     srcs.append(img_rel_path)
 
@@ -113,7 +141,7 @@ def get_image_sizes(ctx, page, templ_vars):
             sizes = get_imgur_album_xy(page)
             print sizes
             templ_vars['site']['sizes'], templ_vars['site']['thumb_sizes'] = (
-                    sizes
+                sizes
             )
         else:
             # get absolute paths of images in album for each file type
